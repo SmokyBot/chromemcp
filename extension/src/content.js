@@ -5,6 +5,8 @@
  * browser automation commands from AI applications.
  */
 
+const DEFAULT_SERVER = 'localhost:8080';
+
 class WsClient {
   constructor() {
     this.ws = null;
@@ -12,37 +14,70 @@ class WsClient {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
-    
+    this.serverUrl = DEFAULT_SERVER;
+
     this.init();
   }
 
   async init() {
-    console.log('[Chrome MCP] Initializing content script');
+    console.log('[Chrome MCP] Initializing content script on:', window.location.href);
+    console.log('[Chrome MCP] Document readyState:', document.readyState);
+    await this.loadServerConfig();
     await this.connectToServer();
     this.setupMessageHandlers();
+    console.log('[Chrome MCP] Content script initialization complete');
   }
 
-  async connectToServer() {
+  async loadServerConfig() {
     try {
-      // Try to connect to the MCP server WebSocket (using default port from config)
-      const wsUrl = 'ws://localhost:8080';
-      console.log(`[Chrome MCP] Connecting to ${wsUrl}`);
-      
-      // Close any existing connection before creating a new one
-      if (this.ws) {
-        console.log('[Chrome MCP] Closing existing connection before reconnecting');
-        this.ws.close();
-        this.ws = null;
+      const result = await chrome.storage.sync.get(['serverUrl']);
+      if (result.serverUrl) {
+        this.serverUrl = result.serverUrl;
+        console.log(`[Chrome MCP] Loaded server config: ${this.serverUrl}`);
       }
-      
+    } catch (error) {
+      console.log('[Chrome MCP] Using default server:', DEFAULT_SERVER);
+    }
+  }
+
+  async connectToServer(newServerUrl, forceProtocol = null) {
+    // If a new server URL is provided, update and save it
+    if (newServerUrl) {
+      this.serverUrl = newServerUrl;
+      try {
+        await chrome.storage.sync.set({ serverUrl: newServerUrl });
+      } catch (e) {
+        console.log('[Chrome MCP] Could not save server URL');
+      }
+    }
+
+    // Close any existing connection before creating a new one
+    if (this.ws) {
+      console.log('[Chrome MCP] Closing existing connection before reconnecting');
+      this.ws.close();
+      this.ws = null;
+    }
+
+    // Determine protocol: try WSS on HTTPS pages, WS on HTTP pages
+    const isHttps = window.location.protocol === 'https:';
+    let protocol = forceProtocol || (isHttps ? 'wss' : 'ws');
+
+    console.log(`[Chrome MCP] Page protocol: ${window.location.protocol}, using WebSocket protocol: ${protocol}`);
+
+    try {
+      const wsUrl = `${protocol}://${this.serverUrl}`;
+      console.log(`[Chrome MCP] Connecting to ${wsUrl}`);
+
       this.ws = new WebSocket(wsUrl);
-      
+      this.currentProtocol = protocol;
+
       this.ws.onopen = () => {
-        console.log('[Chrome MCP] Connected to MCP server');
+        console.log(`[Chrome MCP] Connected to MCP server via ${protocol.toUpperCase()}`);
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.preferredProtocol = protocol; // Remember what worked
       };
-      
+
       this.ws.onmessage = (event) => {
         console.log('[Chrome MCP] Received message:', event.data.substring(0, 100) + (event.data.length > 100 ? '...' : ''));
         try {
@@ -52,17 +87,26 @@ class WsClient {
           console.error('[Chrome MCP] Error parsing message:', error);
         }
       };
-      
+
       this.ws.onclose = (event) => {
         console.log(`[Chrome MCP] Connection closed with code ${event.code}, reason: ${event.reason || 'No reason provided'}`);
         this.isConnected = false;
-        this.attemptReconnect();
+
+        // If WSS failed and we haven't tried WS yet, try WS as fallback
+        if (protocol === 'wss' && !this.triedWsFallback && event.code !== 1000) {
+          console.log('[Chrome MCP] WSS failed, trying WS fallback...');
+          this.triedWsFallback = true;
+          this.connectToServer(null, 'ws');
+        } else {
+          this.triedWsFallback = false;
+          this.attemptReconnect();
+        }
       };
-      
+
       this.ws.onerror = (error) => {
-        console.error('[Chrome MCP] WebSocket error:', error);
+        console.error(`[Chrome MCP] WebSocket error (${protocol}):`, error);
       };
-      
+
     } catch (error) {
       console.error('[Chrome MCP] Failed to connect:', error);
       this.attemptReconnect();
@@ -148,8 +192,11 @@ class WsClient {
         case 'getTitle':
           this.sendMessage({ id, type: 'getTitle_complete', data: { title: document.title } });
           break;
-        case 'get_console_logs':
+        case 'browser_get_console_logs':
           await this.handleGetConsoleLogs(id);
+          break;
+        case 'browser_get_network_logs':
+          await this.handleGetNetworkLogs(id);
           break;
         case 'browser_get_inner_html':
           await this.handleGetInnerHTML(data, id);
@@ -192,22 +239,31 @@ class WsClient {
     
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('[Chrome MCP] Received message from popup:', message.type);
       this.handlePopupMessage(message, sendResponse);
       return true; // Keep message channel open
     });
+    console.log('[Chrome MCP] Message handlers registered');
   }
 
   handlePopupMessage(message, sendResponse) {
+    console.log('[Chrome MCP] handlePopupMessage:', message.type, 'isConnected:', this.isConnected);
     switch (message.type) {
       case 'get_status':
-        sendResponse({ connected: this.isConnected });
+        console.log('[Chrome MCP] Responding with status - connected:', this.isConnected, 'serverUrl:', this.serverUrl);
+        sendResponse({
+          connected: this.isConnected,
+          serverUrl: this.serverUrl
+        });
         break;
       case 'reconnect':
+        console.log('[Chrome MCP] Reconnect requested with serverUrl:', message.serverUrl);
         this.reconnectAttempts = 0;
-        this.connectToServer();
+        this.connectToServer(message.serverUrl || null);
         sendResponse({ success: true });
         break;
       default:
+        console.log('[Chrome MCP] Unknown message type:', message.type);
         sendResponse({ error: 'Unknown message type' });
     }
   }
@@ -323,8 +379,39 @@ class WsClient {
   }
 
   async handleGetConsoleLogs(messageId) {
-    // Console logs are captured by background script
-    this.sendMessage({ id: messageId, type: 'console_logs_request' });
+    chrome.runtime.sendMessage({ type: 'console_logs_request' }, (response) => {
+      if (response && response.data) {
+        this.sendMessage({
+          id: messageId,
+          type: 'browser_get_console_logs_complete',
+          data: response.data.logs || []
+        });
+      } else {
+        this.sendMessage({
+          id: messageId,
+          type: 'browser_get_console_logs_complete',
+          data: []
+        });
+      }
+    });
+  }
+
+  async handleGetNetworkLogs(messageId) {
+    chrome.runtime.sendMessage({ type: 'network_logs_request' }, (response) => {
+      if (response && response.data) {
+        this.sendMessage({
+          id: messageId,
+          type: 'browser_get_network_logs_complete',
+          data: response.data.logs || []
+        });
+      } else {
+        this.sendMessage({
+          id: messageId,
+          type: 'browser_get_network_logs_complete',
+          data: []
+        });
+      }
+    });
   }
 
   // Utility methods

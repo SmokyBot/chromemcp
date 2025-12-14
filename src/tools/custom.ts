@@ -3,6 +3,13 @@ import { z } from "zod";
 import { GetConsoleLogsTool, ScreenshotTool } from "../types";
 import { Tool } from "./tool";
 
+// Network monitoring tool schema
+const GetNetworkLogsTool = z.object({
+  name: z.literal("get_network_logs"),
+  description: z.literal("Get network requests and responses from the browser's network tab"),
+  arguments: z.object({}).optional(),
+});
+
 const GetInnerHTMLTool = z.object({
   name: z.literal("get_inner_html"),
   description: z.literal(
@@ -29,6 +36,26 @@ export const getConsoleLogs: Tool = {
     const text: string = consoleLogs
       .map((log: any) => JSON.stringify(log))
       .join("\n");
+    return {
+      content: [{ type: "text", text }],
+    };
+  },
+};
+
+export const getNetworkLogs: Tool = {
+  schema: {
+    name: GetNetworkLogsTool.shape.name.value,
+    description: GetNetworkLogsTool.shape.description.value,
+    inputSchema: zodToJsonSchema(GetNetworkLogsTool.shape.arguments),
+  },
+  handle: async (context, _params) => {
+    const networkLogs = await context.sendSocketMessage(
+      "browser_get_network_logs",
+      {},
+    );
+    const text: string = networkLogs
+      .map((log: any) => JSON.stringify(log, null, 2))
+      .join("\n\n");
     return {
       content: [{ type: "text", text }],
     };
@@ -70,14 +97,14 @@ export const getInnerHTML: Tool = {
       "browser_get_inner_html",
       { selector, getAll, getTextContent },
     );
-    
+
     // Handle the response based on the options
     let resultText = '';
-    
+
     if (response && response.content) {
       if (Array.isArray(response.content) && getAll) {
         // Format array of contents for readability
-        resultText = response.content.map((item: string, index: number) => 
+        resultText = response.content.map((item: string, index: number) =>
           `[${index}]: ${item}`
         ).join('\n');
       } else {
@@ -87,7 +114,7 @@ export const getInnerHTML: Tool = {
     } else {
       resultText = JSON.stringify(response, null, 2);
     }
-    
+
     return {
       content: [{ type: "text", text: resultText }],
     };

@@ -1,13 +1,13 @@
 {
   "name": "@hoangcongst/chromemcp",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A lightweight and fast MCP server to connect AI agents to your own Chrome browser.",
   "author": "hoangcongst",
-  "homepage": "https://github.com/hoangcongst/chromemcp", 
+  "homepage": "https://github.com/hoangcongst/chromemcp",
   "repository": {
     "type": "git",
     "url": "https://github.com/hoangcongst/chromemcp.git"
-  }, 
+  },
   "bugs": "https://github.com/hoangcongst/chromemcp/issues",
   "keywords": [
     "mcp",
@@ -20,16 +20,16 @@
     "browser-extension"
   ],
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "bin": {
-    "chromemcp": "dist/index.js"
+    "chromemcp": "dist/index.cjs"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsup src/index.ts --format esm && shx chmod +x dist/*.js",
+    "build": "tsup && shx chmod +x dist/*.cjs",
     "start": "node dist/index.js",
     "prepare": "npm run build",
     "watch": "tsup src/index.ts --format esm --watch "
@@ -37,13 +37,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
     "commander": "^13.1.0",
+    "selfsigned": "^5.2.0",
     "ws": "^8.18.1",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.3"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.0",
     "@types/node": "^20.14.10",
+    "@types/ws": "^8.18.0",
     "shx": "^0.3.4",
     "tsup": "^8.4.0",
     "typescript": "^5.6.2"

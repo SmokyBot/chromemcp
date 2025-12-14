@@ -9,17 +9,18 @@ import {
 import { Context } from "@/context";
 import type { Resource } from "@/resources/resource";
 import type { Tool } from "@/tools/tool";
-import { createWebSocketServer } from "@/ws";
+import { createWebSocketServer, WebSocketOptions } from "@/ws";
 
 type Options = {
   name: string;
   version: string;
   tools: Tool[];
   resources: Resource[];
+  wsOptions?: WebSocketOptions;
 };
 
 export async function createServerWithTools(options: Options): Promise<Server> {
-  const { name, version, tools, resources } = options;
+  const { name, version, tools, resources, wsOptions } = options;
   const context = new Context();
   const server = new Server(
     { name, version },
@@ -31,40 +32,32 @@ export async function createServerWithTools(options: Options): Promise<Server> {
     },
   );
 
-  const wss = await createWebSocketServer();
+  const wss = await createWebSocketServer(wsOptions);
   wss.on("connection", (websocket, request) => {
-    console.log(`[Chrome MCP] New WebSocket connection from ${request.socket.remoteAddress}`);
-    // Set up event handlers for this connection
+    console.log();
     websocket.on('error', (error) => {
       console.error('[Chrome MCP] WebSocket connection error:', error);
     });
     
     websocket.on('close', (code, reason) => {
-      console.log(`[Chrome MCP] WebSocket connection closed with code ${code}, reason: ${reason || 'No reason provided'}`);
+      console.log();
     });
     
-    // Store the connection in context
     context.ws = websocket;
     console.log('[Chrome MCP] WebSocket connection established successfully');
     
-    // Handle incoming messages
     websocket.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.log(`[Chrome MCP] Received message: ${JSON.stringify(message)}`);
-        
-        // Process responses from the extension
         if (message.type && message.type.endsWith('_complete')) {
-          console.log(`[Chrome MCP] Action completed: ${message.type}`);
-          // The message ID is handled by the sender function to resolve the corresponding promise
-          // No need to do anything here as the sender will handle the resolution
+          console.log();
         } else if (message.type === 'heartbeat_ack') {
           console.log('[Chrome MCP] Received heartbeat acknowledgment');
         } else if (message.type === 'error') {
-          console.error(`[Chrome MCP] Error from extension: ${JSON.stringify(message.data)}`);
+          console.error();
         }
       } catch (error) {
-        console.error(`[Chrome MCP] Error parsing message: ${error}`);
+        console.error();
       }
     });
   });

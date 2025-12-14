@@ -1,135 +1,129 @@
-# Chrome MCP: Give Your AI the Keys to Your Browser 🔑
+# Chrome MCP: Give Your AI the Keys to Your Browser
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg)](https://developer.chrome.com/docs/extensions/)
 
-**Unleash your AI's full potential by giving it direct, secure control over your personal Chrome browser. `chromemcp` transforms your browser from a simple tool into an active, intelligent partner for any task.**
+**Unleash your AI's full potential by giving it direct, secure control over your personal Chrome browser.**
 
 ---
 
-## 🚀 Core Philosophy: Speed and Simplicity
+## Core Philosophy: Speed and Simplicity
 
-`chromemcp` is built on a simple but powerful idea: **the best tools are the ones you don't notice.** Our focus is on creating a seamless, lightweight, and incredibly fast bridge between your AI and your browser.
-
--   **No Heavy Dependencies**: We use a minimal set of well-vetted libraries to keep the footprint small.
--   **Instant Startup**: By hooking into your existing browser, we eliminate the slow, resource-intensive process of launching new browser instances.
--   **Zero-Clutter Setup**: The configuration is designed to be completed in minutes, getting you from clone to command as quickly as possible.
-
-This project is for developers who value performance and want a tool that just works, without the bloat.
-
-## The Problem: Your AI is Trapped in a Chatbox
-
-Large Language Models are incredibly powerful, but they are fundamentally disconnected from your most important workspace: the web browser. Traditional automation tools like Playwright or Puppeteer are clunky, run in isolated environments, and constantly struggle with logins, CAPTCHAs, and bot detection. They don't know who you are.
+- **No Heavy Dependencies**: Minimal set of well-vetted libraries
+- **Instant Startup**: Hooks into your existing browser
+- **Zero-Clutter Setup**: Configuration completed in minutes
 
 ## The Solution: Seamless, Context-Aware Automation
 
-`chromemcp` bridges this gap. It's a **Model Context Protocol (MCP)** server that acts as a secure bridge between any AI agent and **your own Chrome browser**. It doesn't launch a new, empty browser; it connects to the one you're already using, complete with your logins, history, and cookies.
+chromemcp is a **Model Context Protocol (MCP)** server that bridges AI agents with **your own Chrome browser**. It connects to the browser you are already using, complete with your logins, history, and cookies.
 
-This means your AI can:
-- ✅ Operate on websites that require a login.
-- ✅ Leverage your existing session data for context.
-- ✅ Avoid bot detection by using your genuine browser fingerprint.
-- ✅ Work alongside you, in your environment.
+Your AI can:
+- Operate on websites that require a login
+- Leverage your existing session data for context
+- Avoid bot detection by using your genuine browser fingerprint
+- Work alongside you, in your environment
 
-## How `chromemcp` Redefines AI Interaction
+## Quick Start
 
-| Advantage | The Old Way (Playwright, etc.) | The `chromemcp` Way | 
-| :--- | :--- | :--- | 
-| **Integration** | ❌ Runs in a sterile, separate browser instance. | ✅ **Seamlessly integrates** with your live browser session. | 
-| **Authentication** | ❌ Constant re-logins and brittle session management. | ✅ **Stays logged in.** Uses your existing cookies and sessions. | 
-| **Privacy** | ⚠️ Can involve cloud services or complex setups. | 🔒 **100% Local and Private.** Your data never leaves your machine. | 
-| **Speed & Resources** | 🐢 Slow to start, heavy on resources. | ⚡ **Instantaneous and Lightweight.** No new browser process needed. | 
-| **Stealth** | 🤖 Easily flagged as a bot. | 🥷 **Human-like.** Uses your real browser fingerprint. | 
+1. **Clone and Install**
+   ```bash
+   git clone https://github.com/hoangcongst/chromemcp.git
+   cd chromemcp
+   pnpm install && pnpm build
+   ```
 
-## From Zero to AI-Powered in 5 Minutes
+2. **Load the Extension**
+   - Go to chrome://extensions, enable **Developer Mode**
+   - Click **Load unpacked** and select the extension folder
 
-1.  **Clone & Install**
-    ```bash
-    git clone https://github.com/hoangcongst/chromemcp.git
-    cd chromemcp
-    pnpm install && pnpm build
-    ```
+3. **Configure Your AI Client**
+   ```json
+   {
+     "name": "ChromeMCP",
+     "command": "node",
+     "args": ["/path/to/chromemcp/dist/index.cjs"],
+     "type": "stdio"
+   }
+   ```
+   
+   Or use the published version:
+   ```json
+   {
+     "name": "ChromeMCP",
+     "command": "npx",
+     "args": ["@hoangcongst/chromemcp"],
+     "type": "stdio"
+   }
+   ```
 
-2.  **Load the Extension**
-    - Go to `chrome://extensions`, enable **Developer Mode**.
-    - Click **Load unpacked** and select the `extension` folder.
+## Advanced Configuration
 
-3.  **Configure Your AI Client**
-    Once the extension is loaded, you don't need to manually start the server. Your AI client will do it for you. Here’s how to set it up:
+### CLI Options
 
-    #### For Cursor, Claude, or other `stdio`-based clients:
+| Option | Description | Default |
+| :--- | :--- | :--- |
+| --host <host> | Host/IP to bind the WebSocket server | 0.0.0.0 |
+| --port <port> | Port for the WebSocket server | 8080 |
+| --ssl | Enable WSS with auto-generated self-signed certificate | disabled |
+| --cert <path> | Path to custom SSL certificate file | - |
+| --key <path> | Path to custom SSL key file | - |
 
-    1.  Find the absolute path to the `chromemcp` startup script. In your terminal, navigate to the project directory and run:
-        ```bash
-        # This will print the full path, e.g., /Users/you/projects/chromemcp
-        pwd
-        ```
-        The path to the script will be `/path/from/pwd/dist/index.js`.
+### Remote Server Setup
 
-    2.  In your AI client's settings, add a new MCP server configuration:
+Run the MCP server on a remote machine and connect from your browser:
 
-        - **Name**: `ChromeMCP` (or your preferred name)
-        - **Type**: `stdio`
-        - **Command**: `node`
-        - **Arguments**: `["/path/to/your/chromemcp/dist/index.js"]`
+1. **Start the server on the remote machine:**
+   ```bash
+   # Basic (HTTP pages only)
+   node dist/index.cjs --host 0.0.0.0 --port 8080
 
-    Here is an example configuration snippet:
-    ```json
-    {
-      "name": "ChromeMCP",
-      "command": "node",
-      "args": [
-        "/Users/your_username/path/to/chromemcp/dist/index.js"
-      ],
-      "type": "stdio"
-    }
-    ```
+   # With SSL for HTTPS pages (auto-generates certificate)
+   node dist/index.cjs --host 0.0.0.0 --port 8080 --ssl
+   ```
 
-    or pubished version
-    ```json
-    {
-      "name": "ChromeMCP",
-      "command": "npx",
-      "args": [
-        "@hoangcongst/chromemcp"
-      ],
-      "type": "stdio"
-    }
-    ```
-    3.  Save the configuration. Your AI client is now connected and will start the server automatically whenever you use a browser tool.
+2. **Configure the extension:**
+   - Click the Chrome MCP extension icon
+   - Enter your server address (e.g., myserver.local:8080)
+   - Click Save then Connect to Server
 
-## The Toolkit: Your AI's Senses and Hands
+3. **For HTTPS pages (when using --ssl):**
+   - Visit https://YOUR_SERVER:PORT in your browser
+   - Click Advanced then Proceed to accept the self-signed certificate
+   - Now the extension can connect via WSS from HTTPS pages
 
-Equip your AI with a powerful set of tools to see, understand, and interact with the web.
+**Note:** Self-signed certificates are stored in ~/.chromemcp/certs/ and reused on subsequent runs.
 
-<details>
-<summary><strong>👀 Vision & Understanding</strong></summary>
+### Example Remote Configuration
 
-- `snapshot`: Perceive the structure and content of a webpage.
-- `screenshot`: See the visual layout of the page or specific elements.
-- `get_inner_html`: Read the raw content or text of any element.
-- `get_console_logs`: Debug by checking for errors and messages.
+```json
+{
+  "name": "ChromeMCP",
+  "command": "node",
+  "args": [
+    "/path/to/chromemcp/dist/index.cjs",
+    "--host", "0.0.0.0",
+    "--port", "8080",
+    "--ssl"
+  ],
+  "type": "stdio"
+}
+```
 
-</details>
+## Available Tools
 
-<details>
-<summary><strong>🦾 Action & Interaction</strong></summary>
+### Vision and Understanding
+- **snapshot**: Perceive the structure and content of a webpage
+- **screenshot**: See the visual layout of the page
+- **get_inner_html**: Read the raw content or text of any element
+- **get_console_logs**: Debug by checking for errors and messages
+- **get_network_logs**: Monitor network requests and responses
 
-- `click`, `hover`, `type`: Interact with any element on the page.
-- `navigate`, `go_back`, `go_forward`: Control the browser's navigation.
-- `execute_javascript`: Inject custom logic or modify the page on the fly.
-- `press_key`, `select_option`: Handle complex forms and keyboard shortcuts.
-
-</details>
-
-## Join the Revolution
-
-This is more than just a project; it's a step towards a future where AI agents are truly helpful assistants that can work with us in our digital environments. 
-
-**Contributions are highly encouraged!** Whether you want to add new tools, improve performance, or fix bugs, your input is valuable. Check out the issues or open a pull request to get started.
+### Action and Interaction
+- **click**, **hover**, **type**: Interact with any element
+- **navigate**, **go_back**, **go_forward**: Control browser navigation
+- **press_key**, **select_option**: Handle forms and keyboard shortcuts
 
 ## License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
-
+This project is licensed under the **MIT License**. See the LICENSE file for details.
